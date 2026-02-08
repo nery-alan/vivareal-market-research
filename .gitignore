@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Data files
+data/raw/*.html
+data/raw/*.md
+data/processed/*.json
+data/processed/*.csv
+data/processed/*.xlsx
+
+# Reports (keep template)
+reports/*.xlsx
+reports/*.csv
+!reports/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
