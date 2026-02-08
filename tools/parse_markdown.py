@@ -55,6 +55,42 @@ class MarkdownParser:
 
         return None
 
+    def extract_price_from_url(self, url: str) -> Optional[float]:
+        """
+        Extrai preço da URL do VivaReal (mais confiável).
+
+        Formato: .../venda-RS295000-id-... ou .../aluguel-RS2500-id-...
+        Exemplo: https://www.vivareal.com.br/imovel/.../venda-RS295000-id-2869100154/
+        """
+        if not url:
+            return None
+
+        # Padrão: RS seguido de dígitos antes de "-id-"
+        match = re.search(r'[Rr][Ss](\d+)', url)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return None
+
+        return None
+
+    def extract_region_from_url(self, url: str) -> Optional[str]:
+        """
+        Extrai região/bairro da URL.
+
+        Exemplo: .../socorro-sao-paulo/... → "socorro"
+        """
+        if not url:
+            return None
+
+        # Padrão: bairro antes de /apartamento ou /casa
+        match = re.search(r'/([a-z-]+)-sao-paulo/', url)
+        if match:
+            return match.group(1)
+
+        return None
+
     def parse_listing_block(self, block: str) -> Optional[Dict]:
         """
         Parseia um bloco de anúncio.
@@ -64,20 +100,37 @@ class MarkdownParser:
         - Preço: R$ XXX.XXX
         - Área: XX m²
         """
-        # Extrair dados
+        # Extrair link primeiro
         link = self.extract_link(block)
-        price = self.extract_price(block)
+
+        # Extrair preço da URL (mais confiável!)
+        price = self.extract_price_from_url(link) if link else None
+
+        # Se não conseguiu da URL, tenta do texto
+        if not price:
+            price = self.extract_price(block)
+
+        # Extrair área
         area = self.extract_area(block)
+
+        # Extrair região para deduplicação
+        region = self.extract_region_from_url(link)
 
         # Validar dados mínimos
         if not link or not price or not area:
             return None
 
+        # Criar hash único para deduplicação inteligente
+        # Mesmo imóvel = mesmo preço + área + região
+        dedup_key = f"{price}_{area}_{region}"
+
         return {
             "link": link,
             "price": price,
             "area": area,
-            "price_per_sqm": round(price / area, 2) if area > 0 else None
+            "region": region,
+            "price_per_sqm": round(price / area, 2) if area > 0 else None,
+            "_dedup_key": dedup_key  # Para deduplicação
         }
 
     def parse_markdown(self, min_area: float = 40, max_area: float = 45) -> List[Dict]:
@@ -139,12 +192,18 @@ class MarkdownParser:
 
         print(f"   ✅ Após filtro ({min_area}-{max_area} m²): {len(filtered_listings)} anúncios")
 
-        # Remover duplicatas por link
+        # Remover duplicatas inteligentes (mesmo imóvel = preço + área + região)
         unique_listings = {}
         for listing in filtered_listings:
-            unique_listings[listing['link']] = listing
+            dedup_key = listing.get('_dedup_key', listing['link'])
+            if dedup_key not in unique_listings:
+                unique_listings[dedup_key] = listing
 
         final_listings = list(unique_listings.values())
+
+        # Remover campo interno de deduplicação
+        for listing in final_listings:
+            listing.pop('_dedup_key', None)
 
         print(f"   ✅ Após remover duplicatas: {len(final_listings)} anúncios")
 

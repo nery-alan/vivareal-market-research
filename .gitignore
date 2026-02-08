@@ -37,3 +37,14 @@ reports/*.csv
 
 # Logs
 *.log
+
+# Temporary processing folders
+data/processed/temp_*/
+data/processed/test_*/
+
+# Generated reports (keep structure only)
+reports/*-*-*/
+reports/*.html
+
+# Claude Code
+.claude/

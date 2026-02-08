@@ -12,10 +12,45 @@ from datetime import datetime
 
 class ReportGenerator:
     def __init__(self, input_file: str = "data/processed/listings.json",
-                 output_dir: str = "reports"):
+                 output_dir: str = "reports",
+                 region: str = None,
+                 min_area: int = None,
+                 max_area: int = None):
         self.input_file = Path(input_file)
-        self.output_dir = Path(output_dir)
+        self.base_output_dir = Path(output_dir)
+        self.region = region
+        self.min_area = min_area
+        self.max_area = max_area
+
+        # Criar pasta estruturada se tiver região e tamanho
+        self.output_dir = self._create_structured_folder()
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def _create_structured_folder(self) -> Path:
+        """Cria pasta estruturada: reports/bairro-tamanho-data/"""
+        # Se não tiver região, tentar detectar da metadata
+        region = self.region
+        if not region:
+            metadata_file = Path("data/raw/crawl_metadata.json")
+            if metadata_file.exists():
+                import json
+                with open(metadata_file) as f:
+                    metadata = json.load(f)
+                    region = metadata.get('region', None)
+
+        # Se ainda não tiver, usar base_output_dir
+        if not region:
+            return self.base_output_dir
+
+        # Criar nome da pasta: bairro-tamanho-data
+        date_str = datetime.now().strftime("%Y%m%d")
+
+        if self.min_area and self.max_area:
+            folder_name = f"{region}-{self.min_area}-{self.max_area}-{date_str}"
+        else:
+            folder_name = f"{region}-{date_str}"
+
+        return self.base_output_dir / folder_name
 
     def load_data(self) -> pd.DataFrame:
         """Carrega dados do JSON e converte para DataFrame."""
@@ -127,10 +162,9 @@ class ReportGenerator:
         # Resetar index
         export_df.reset_index(drop=True, inplace=True)
 
-        # Gerar nome do arquivo
+        # Gerar nome do arquivo simplificado
         if not filename:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"vivareal_freguesia_do_o_{timestamp}.xlsx"
+            filename = "relatorio.xlsx"
 
         output_path = self.output_dir / filename
 
@@ -181,7 +215,7 @@ class ReportGenerator:
         stats = self.calculate_statistics(df)
         self.print_summary(stats)
 
-        # Gerar Excel
+        # Gerar Excel (região detectada automaticamente da metadata)
         excel_path = self.generate_excel(df)
 
         print(f"\n🎉 Relatório concluído com sucesso!")
@@ -198,12 +232,18 @@ def main():
     parser.add_argument("--output-dir", default="reports", help="Diretório de saída")
     parser.add_argument("--min-count", type=int, default=100, help="Mínimo de anúncios")
     parser.add_argument("--filename", help="Nome do arquivo Excel (opcional)")
+    parser.add_argument("--region", help="Região da pesquisa")
+    parser.add_argument("--min-area", type=int, help="Área mínima")
+    parser.add_argument("--max-area", type=int, help="Área máxima")
 
     args = parser.parse_args()
 
     generator = ReportGenerator(
         input_file=args.input,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        region=args.region,
+        min_area=args.min_area,
+        max_area=args.max_area
     )
 
     try:
