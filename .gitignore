@@ -14,6 +14,7 @@ build/
 # Data files
 data/raw/*.html
 data/raw/*.md
+data/raw/*.json
 data/processed/*.json
 data/processed/*.csv
 data/processed/*.xlsx
